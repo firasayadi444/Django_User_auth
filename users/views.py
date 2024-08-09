@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, NotFound
+from rest_framework.permissions import IsAuthenticated
 from .serializers import UserSerializer
 from .models import User
 import jwt, datetime
@@ -46,9 +47,9 @@ class LoginView(APIView):
 
 
 class UserView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-
         token = request.COOKIES.get('jwt')
 
         if not token:
@@ -60,14 +61,51 @@ class UserView(APIView):
             raise AuthenticationFailed('Unauthenticated!')
 
         user = User.objects.filter(id=payload['id']).first()
+        if not user:
+            raise NotFound("User not found.")
+
         serializer = UserSerializer(user)
         return Response(serializer.data)
 
-        # return Response({
-        #     'id': user.id,
-        #     'email': user.email,
-        #     'name': user.name
-        # })
+    def put(self, request):
+        token = request.COOKIES.get('jwt')
+
+        if not token:
+            raise AuthenticationFailed('Unauthenticated!')
+
+        try:
+            payload = jwt.decode(token, 'secret', algorithms=['HS256'])
+        except jwt.ExpiredSignatureError:
+            raise AuthenticationFailed('Unauthenticated!')
+
+        user = User.objects.filter(id=payload['id']).first()
+        if not user:
+            raise NotFound("User not found.")
+
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data)
+
+    def delete(self, request):
+        token = request.COOKIES.get('jwt')
+
+        if not token:
+            raise AuthenticationFailed('Unauthenticated!')
+
+        try:
+            payload = jwt.decode(token, 'secret', algorithms=['HS256'])
+        except jwt.ExpiredSignatureError:
+            raise AuthenticationFailed('Unauthenticated!')
+
+        user = User.objects.filter(id=payload['id']).first()
+        if not user:
+            raise NotFound("User not found.")
+
+        user.delete()
+
+        return Response({"message": "User deleted successfully."})
 
 
 class LogoutView(APIView):
@@ -78,3 +116,44 @@ class LogoutView(APIView):
             'message': 'success'
         }
         return response
+
+
+class UserListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        users = User.objects.all()
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
+
+
+class UserDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        user = User.objects.filter(id=pk).first()
+        if not user:
+            raise NotFound("User not found.")
+
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        user = User.objects.filter(id=pk).first()
+        if not user:
+            raise NotFound("User not found.")
+
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        user = User.objects.filter(id=pk).first()
+        if not user:
+            raise NotFound("User not found.")
+
+        user.delete()
+
+        return Response({"message": "User deleted successfully."})
