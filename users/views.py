@@ -41,46 +41,46 @@ class LoginView(APIView):
         return response
 
 class UserView(APIView):
-    def get(self, request):
-        token = request.COOKIES.get('jwt')
-
-        if not token:
-            raise AuthenticationFailed('Unauthenticated!')
-
-        try:
-            payload = jwt.decode(token, 'secret', algorithms=['HS256'])
-        except jwt.ExpiredSignatureError:
-            raise AuthenticationFailed('Unauthenticated!')
-
-        user = User.objects.filter(id=payload['id']).first()
-        serializer = UserSerializer(user)
-        return Response(serializer.data)
+    # def get(self, request):
+    #     token = request.COOKIES.get('jwt')
     #
-    # def get(self, request, user_id):
-    #     # token = request.COOKIES.get('jwt')
-    #     # print("View has been triggered")  # Print a basic message
-    #     auth_header = request.headers.get('Authorization')  # Get the Authorization header
-    #     # print(f"auth_header received: {auth_header}")
-    #
-    #     if not auth_header or not auth_header.startswith('Bearer '):
-    #         raise AuthenticationFailed('Unauthenticated!')
-    #
-    #     token = auth_header.split(' ')[1]  # Extract the token from 'Bearer <token>'
-    #     # print(f"Token received: {token}")
     #     if not token:
     #         raise AuthenticationFailed('Unauthenticated!')
     #
     #     try:
-    #         jwt.decode(token, 'secret', algorithms=['HS256'])
+    #         payload = jwt.decode(token, 'secret', algorithms=['HS256'])
     #     except jwt.ExpiredSignatureError:
     #         raise AuthenticationFailed('Unauthenticated!')
     #
-    #     user = User.objects.filter(id=user_id).first()
-    #     if user is None:
-    #         raise AuthenticationFailed('User not found!')
-    #
+    #     user = User.objects.filter(id=payload['id']).first()
     #     serializer = UserSerializer(user)
     #     return Response(serializer.data)
+
+    def get(self, request, user_id):
+        # token = request.COOKIES.get('jwt')
+        # print("View has been triggered")  # Print a basic message
+        auth_header = request.headers.get('Authorization')  # Get the Authorization header
+        # print(f"auth_header received: {auth_header}")
+
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise AuthenticationFailed('Unauthenticated!')
+
+        token = auth_header.split(' ')[1]  # Extract the token from 'Bearer <token>'
+        # print(f"Token received: {token}")
+        if not token:
+            raise AuthenticationFailed('Unauthenticated!')
+
+        try:
+            jwt.decode(token, 'secret', algorithms=['HS256'])
+        except jwt.ExpiredSignatureError:
+            raise AuthenticationFailed('Unauthenticated!')
+
+        user = User.objects.filter(id=user_id).first()
+        if user is None:
+            raise AuthenticationFailed('User not found!')
+
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
 
 class LogoutView(APIView):
     def post(self, request):
