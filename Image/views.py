@@ -19,9 +19,9 @@ from .serializers import GeneratedImageSerializer
 
 # Your Hugging Face API URL and token
 API_URL = "https://modelslab.com/api/v6/images/text2img"
-API_TOKEN = "pJqFjy2RIzOsjdgUjysQrSN3Yvq0U8SP0iRpVUAm2vSOyBMFUHy8aF2zLAI3"
+API_TOKEN = "aFSFwozCywkcfPRDerqBvA9cC8bpbjdEg2POULMLzirP28YIpHC3AEBRvxQ8"
 
-def call_hugging_face_api(prompt, width=512, height=512):
+def call_hugging_face_api(prompt, width, height):
     payload = {
         "key": API_TOKEN,
         "model_id": "midjourney",
@@ -61,7 +61,7 @@ MAX_RETRIES = 6
 DELAY_SECONDS = 30
 
 
-def call_hugging_face_api_with_retries(prompt, width=512, height=512):
+def call_hugging_face_api_with_retries(prompt, width, height):
     retry_count = 0
 
     while retry_count < MAX_RETRIES:
@@ -78,6 +78,9 @@ def call_hugging_face_api_with_retries(prompt, width=512, height=512):
                     'status': rsp_status,
                     'image_url': image_urls[0]
                 }
+            else:
+                print("status",rsp_status)
+
 
         # Wait for the specified delay before retrying
         time.sleep(DELAY_SECONDS)
@@ -89,14 +92,15 @@ def call_hugging_face_api_with_retries(prompt, width=512, height=512):
 @api_view(['POST'])
 def generate_image(request):
     prompt = request.data.get('prompt')
-    width = int(request.data.get('width', 512))
-    height = int(request.data.get('height', 512))
+    width = int(request.data.get('width'))
+    height = int(request.data.get('height'))
 
     if not prompt:
         return Response({"error": "Prompt is required"}, status=status.HTTP_400_BAD_REQUEST)
 
     # Call the API with retries
-    img_data = call_hugging_face_api_with_retries(prompt, width, height)
+
+    img_data = call_hugging_face_api_with_retries(prompt,width,height)
 
     if img_data:
         return Response({
@@ -144,14 +148,16 @@ def save_image(request):
 @api_view(['GET'])
 def user_images(request):
     # Get the user ID from the query parameters or request data
-    user_id = request.query_params.get('user_id')
+    user_id = request.GET.get('user_id')  # Change to GET if using query parameters
+    print("userid", user_id)
 
     if not user_id:
         return Response({"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         # Fetch the user by ID
-        user = User.objects.get(id=user_id)
+        user = User.objects.filter(id=user_id).first()
+        print("user",user)
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
