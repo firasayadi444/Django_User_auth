@@ -8,5 +8,5 @@ urlpatterns = [
     path('user/<int:user_id>', UserView.as_view()),
     path('logout', LogoutView.as_view())]
 #     path('users', UserListView.as_view()),  # For listing all users
-#     path('users/<int:pk>', UserDetailView.as_view()),  # For individual user CRUD operations
+    # path('users/<int:pk>', UserDetailView.as_view())] # For individual user CRUD operations
 

@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import AuthenticationFailed
 from .serializers import UserSerializer
 from .models import User
+from rest_framework import status
 import jwt, datetime
 
 class RegisterView(APIView):
@@ -81,6 +82,87 @@ class UserView(APIView):
 
         serializer = UserSerializer(user)
         return Response(serializer.data)
+    
+
+    def get_user_from_token(self, request):
+        """
+        A helper function to decode the JWT token and retrieve the user.
+        """
+        auth_header = request.headers.get('Authorization')
+        print("header",auth_header)
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise AuthenticationFailed('Unauthenticated!')
+
+        token = auth_header.split(' ')[1]  # Extract the token from 'Bearer <token>'
+        print(token)
+
+        if not token:
+            raise AuthenticationFailed('Unauthenticated!')
+
+        try:
+            decoded_token = jwt.decode(token, 'secret', algorithms=['HS256'])
+            print(decoded_token)
+
+            user_id = decoded_token.get('id')
+            print("user_id",user_id)
+
+            if not user_id:
+                raise AuthenticationFailed('Unauthenticated!')
+            return User.objects.filter(id=user_id).first()
+        except jwt.ExpiredSignatureError:
+            raise AuthenticationFailed('Unauthenticated!')
+        except jwt.DecodeError:
+            raise AuthenticationFailed('Unauthenticated!')
+    
+    def patch(self, request, user_id):
+        """
+        Update the user profile for the given `user_id`.
+        """
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise AuthenticationFailed('User not found.')
+
+        user = self.get_user_from_token(request)
+        print("Authenticated user:", user)
+
+        # Check if the logged-in user is updating their own profile
+        if user.id != int(user_id):
+            raise AuthenticationFailed('You can only update your own profile.')
+
+        # Extract and handle password if provided
+        password = request.data.pop('password', None)
+        if password:
+            user.set_password(password)  # Hash the password
+            user.save()  # Save the user after setting password
+            print("Password updated and hashed for user.")
+        
+        print('user',user)
+        print("request data", request.data)
+
+        # Update other fields with the serializer (excluding password)
+        serializer = UserSerializer(user, data=request.data, partial=True)  
+        if serializer.is_valid():
+            serializer.save()  # Save other fields without affecting the password
+            print("Other fields updated:", serializer.validated_data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            print("Serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, user_id):
+        """
+        Delete the user profile for the given `user_id`.
+        """
+        user = self.get_user_from_token(request)
+        print("delete user", user)
+
+        if user.id != int(user_id):
+            raise AuthenticationFailed('You can only delete your own profile.')
+
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class LogoutView(APIView):
     def post(self, request):
@@ -90,3 +172,5 @@ class LogoutView(APIView):
             'message': 'success'
         }
         return response
+    
+
