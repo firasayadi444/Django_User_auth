@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/4.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
-
+import os
 from pathlib import Path
 from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -58,6 +58,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'users',
     'Image',
+    'video',
+    'editimage',
 
 ]
 
@@ -153,3 +155,9 @@ AUTH_USER_MODEL = 'users.User'
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 LOGIN_URL = '/api/login/'  # Set this to your login view path
+VIDEO_API_KEY="CYvSGJehJ56Bx0E7o3X8l98fF6oWNwSpb1zcPyNxrysjCpCM6QVwlAePmzZt"
+API_KEY_MODELSLAB = "CYvSGJehJ56Bx0E7o3X8l98fF6oWNwSpb1zcPyNxrysjCpCM6QVwlAePmzZt"  # Replace with your actual API key
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

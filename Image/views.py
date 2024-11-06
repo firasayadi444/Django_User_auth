@@ -1,7 +1,11 @@
 # Image/views.py
+import os
+import json
 import jwt
 import requests
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.http import FileResponse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -13,59 +17,53 @@ from .serializers import GeneratedImageSerializer
 from io import BytesIO
 import base64
 import time
+from django.core.files import File
+from PIL import Image as PILImage
 
 
 from .serializers import GeneratedImageSerializer
 
 # Your Hugging Face API URL and token
-API_URL = "https://modelslab.com/api/v6/images/text2img"
-API_TOKEN = "aFSFwozCywkcfPRDerqBvA9cC8bpbjdEg2POULMLzirP28YIpHC3AEBRvxQ8"
-
-def call_hugging_face_api(prompt, width, height):
-    payload = {
-        "key": API_TOKEN,
-        "model_id": "midjourney",
-        "prompt": prompt,
-        "negative_prompt": None,
-        "width": width,
-        "height": height,
-        "samples": "1",
-        "num_inference_steps": "30",
-        "safety_checker": "no",
-        "enhance_prompt": "yes",
-        "seed": None,
-        "guidance_scale": 7.5,
-        "panorama": "no",
-        "self_attention": "no",
-        "upscale": "no",
-        "embeddings_model": None,
-        "lora_model": None,
-        "tomesd": "yes",
-        "use_karras_sigmas": "yes",
-        "vae": None,
-        "lora_strength": None,
-        "scheduler": "DDIMScheduler",
-        "webhook": None,
-        "track_id": None
-    }
-
-    response = requests.post(API_URL, json=payload)
-    if response.status_code == 200:
-        return response.json()  # Return the JSON response
-    return None
-
-
-
+# API_URL = "https://modelslab.com/api/v6/realtime/text2img"
+API_TOKEN = "vu4r8nvWORAVv0agrJKGF0PqRLlGSK6TUtVTwHiV0OespOzZYoF4GqVD7EVl"
+# URL of the image generation API
+API_URL = "https://modelslab.com/api/v6/realtime/text2img"
 # Maximum number of retries and delay time in seconds
 MAX_RETRIES = 6
 DELAY_SECONDS = 30
+
+
+def call_hugging_face_api(prompt, width, height):
+    payload = json.dumps({
+        "key": API_TOKEN,
+        "prompt": prompt,
+        "negative_prompt": "bad quality",
+        "width": width,
+        "height": height,
+        "safety_checker": False,
+        "seed": None,
+        "samples": 1,
+        "base64": False,
+        "webhook": None,
+        "track_id": None
+    })
+
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    # Make the API request
+    response = requests.post(API_URL, headers=headers, data=payload)
+
+    if response.status_code == 200:
+        return response.json()  # Return the JSON response
+    return None
 
 
 def call_hugging_face_api_with_retries(prompt, width, height):
     retry_count = 0
 
     while retry_count < MAX_RETRIES:
-        # Call the Hugging Face API
         img_data = call_hugging_face_api(prompt, width, height)
 
         if img_data:
@@ -78,9 +76,12 @@ def call_hugging_face_api_with_retries(prompt, width, height):
                     'status': rsp_status,
                     'image_url': image_urls[0]
                 }
-            else:
-                print("status",rsp_status)
 
+            # If the API is still processing, retry after a delay
+            elif rsp_status == 'processing':
+                print("Image generation is still processing, retrying...")
+            else:
+                print("Status:", rsp_status)
 
         # Wait for the specified delay before retrying
         time.sleep(DELAY_SECONDS)
@@ -99,8 +100,7 @@ def generate_image(request):
         return Response({"error": "Prompt is required"}, status=status.HTTP_400_BAD_REQUEST)
 
     # Call the API with retries
-
-    img_data = call_hugging_face_api_with_retries(prompt,width,height)
+    img_data = call_hugging_face_api_with_retries(prompt, width, height)
 
     if img_data:
         return Response({
@@ -110,32 +110,40 @@ def generate_image(request):
     else:
         return Response({"error": "Image generation failed after multiple attempts"},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
 @api_view(['POST'])
 def save_image(request):
-    # Get the user ID from the request data
     user_id = request.data.get('user_id')
-    print("User ID received:", user_id)  # Log the user ID for debugging
+    print("User ID received:", user_id)
 
-    # Fetch the user using the user ID
     user = User.objects.filter(id=user_id).first()
     if not user:
         return Response({"error": "User not found!"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Get the image URL and prompt from the request data
     image_url = request.data.get('image_url')
     prompt = request.data.get('prompt')
 
     if not image_url or not prompt:
         return Response({"error": "Image URL and prompt are required"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Download the image
+    response = requests.get(image_url)
+    if response.status_code != 200:
+        return Response({"error": "Failed to download image"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # Convert the image to PNG format
+    image = PILImage.open(BytesIO(response.content)).convert("RGBA")  # Convert to RGBA if needed
+    png_image = BytesIO()
+    image.save(png_image, format='PNG')
+    png_image.seek(0)  # Move to the beginning of the BytesIO object
+
     # Save the image and its associated data to the database
-    generated_image = GeneratedImage.objects.create(
+    generated_image = GeneratedImage(
         user=user,
         prompt=prompt,
-        image_url=image_url
     )
+
+    # Save the image to the file field
+    generated_image.image.save(f"{user_id}_{int(time.time())}.png", ContentFile(png_image.read()))
     generated_image.save()
 
     # Serialize and return the saved image data
@@ -145,29 +153,32 @@ def save_image(request):
         'message': 'Image saved successfully',
         'image': serializer.data
     }, status=status.HTTP_201_CREATED)
+
 @api_view(['GET'])
 def user_images(request):
-    # Get the user ID from the query parameters or request data
-    user_id = request.GET.get('user_id')  # Change to GET if using query parameters
+    user_id = request.GET.get('user_id')
     print("userid", user_id)
 
     if not user_id:
         return Response({"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        # Fetch the user by ID
-        user = User.objects.filter(id=user_id).first()
-        print("user",user)
-    except User.DoesNotExist:
+    user = User.objects.filter(id=user_id).first()
+    if not user:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Fetch images that belong to the user
     images = GeneratedImage.objects.filter(user=user).order_by('-created_at')
 
-    # Check if the user has any images
     if not images.exists():
         return Response({"error": "No images found for this user"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Serialize the images and return the response
-    serializer = GeneratedImageSerializer(images, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    # Prepare the response data
+    image_data = []
+    for image in images:
+        image_data.append({
+            'id': image.id,
+            'prompt': image.prompt,
+            'created_at': image.created_at,
+            'image_url': request.build_absolute_uri(image.image.url),  # URL to access the image
+        })
+
+    return Response(image_data, status=status.HTTP_200_OK)
