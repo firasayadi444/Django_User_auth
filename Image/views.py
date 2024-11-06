@@ -115,23 +115,26 @@ def save_image(request):
     user_id = request.data.get('user_id')
     print("User ID received:", user_id)
 
+    # Find the user by ID
     user = User.objects.filter(id=user_id).first()
     if not user:
         return Response({"error": "User not found!"}, status=status.HTTP_404_NOT_FOUND)
 
+    # Get the image URL and prompt
     image_url = request.data.get('image_url')
     prompt = request.data.get('prompt')
 
+    # Ensure both fields are provided
     if not image_url or not prompt:
         return Response({"error": "Image URL and prompt are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Download the image
+    # Download the image from the URL
     response = requests.get(image_url)
     if response.status_code != 200:
         return Response({"error": "Failed to download image"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # Convert the image to PNG format
-    image = PILImage.open(BytesIO(response.content)).convert("RGBA")  # Convert to RGBA if needed
+    image = PILImage.open(BytesIO(response.content)).convert("RGBA")
     png_image = BytesIO()
     image.save(png_image, format='PNG')
     png_image.seek(0)  # Move to the beginning of the BytesIO object
@@ -156,20 +159,80 @@ def save_image(request):
 
 @api_view(['GET'])
 def user_images(request):
+    # Get the user ID from the request parameters
     user_id = request.GET.get('user_id')
-    print("userid", user_id)
+    print("User ID:", user_id)
 
+    # Check if the user ID is provided
     if not user_id:
         return Response({"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Check if the user exists
     user = User.objects.filter(id=user_id).first()
     if not user:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
+    # Filter images by the user and visibility
     images = GeneratedImage.objects.filter(user=user).order_by('-created_at')
 
+    # If no images are found for the user
     if not images.exists():
-        return Response({"error": "No images found for this user"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"error": "No visible images found for this user"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Prepare the response data with image URL and other details
+    image_data = []
+    for image in images:
+        image_data.append({
+            'id': image.id,
+            'prompt': image.prompt,
+            'created_at': image.created_at,
+            'image_url': request.build_absolute_uri(image.image.url),  # URL to access the image
+        })
+
+    return Response(image_data, status=status.HTTP_200_OK)
+@api_view(['PATCH'])
+def update_image(request, image_id):
+    try:
+        # Retrieve the image object by its ID
+        image = GeneratedImage.objects.get(id=image_id)
+    except GeneratedImage.DoesNotExist:
+        return Response({"error": "Image not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Extract visibility and likes from the request data
+    visibility = request.data.get('visibility')
+    likes = request.data.get('likes')
+
+    # Update the visibility if it's provided (as a boolean)
+    if visibility is not None:
+        if isinstance(visibility, bool):  # Ensure it's a boolean
+            image.visibility = visibility
+        else:
+            return Response({"error": "'visibility' must be a boolean value"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Update the likes if it's provided (must be an integer)
+    if likes is not None:
+        if isinstance(likes, int):
+            image.likes = likes
+        else:
+            return Response({"error": "'likes' must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Save the updated image data
+    image.save()
+
+    # Serialize the updated image data
+    serializer = GeneratedImageSerializer(image)
+
+    return Response({
+        'message': 'Image updated successfully',
+        'image': serializer.data
+    }, status=status.HTTP_200_OK)
+@api_view(['GET'])
+def visible_images(request):
+    # Fetch images with visibility = True
+    images = GeneratedImage.objects.filter(visibility=True).order_by('-created_at')
+    print("images",images)
+    if not images.exists():
+        return Response({"error": "No visible images found"}, status=status.HTTP_404_NOT_FOUND)
 
     # Prepare the response data
     image_data = []
