@@ -186,6 +186,7 @@ def user_images(request):
             'id': image.id,
             'prompt': image.prompt,
             'created_at': image.created_at,
+            'visibility': image.visibility,
             'image_url': request.build_absolute_uri(image.image.url),  # URL to access the image
         })
 
@@ -245,3 +246,30 @@ def visible_images(request):
         })
 
     return Response(image_data, status=status.HTTP_200_OK)
+
+
+
+@api_view(['PATCH'])
+def share(request, pk):
+    try:
+        image = GeneratedImage.objects.get(pk=pk)
+        # request.data.get('visibility')
+        new_visibility = True
+
+        if new_visibility is not None:
+            image.visibility = bool(new_visibility)
+            image.save()
+            return Response({'status': 'Visibility updated'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Invalid input'}, status=status.HTTP_400_BAD_REQUEST)
+    except GeneratedImage.DoesNotExist:
+        return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['DELETE'])
+def delete_image(request, pk):
+    try:
+        image = GeneratedImage.objects.get(pk=pk)
+        image.delete()
+        return Response(pk, status=status.HTTP_204_NO_CONTENT)
+    except GeneratedImage.DoesNotExist:
+        return Response('Image not found', status=status.HTTP_404_NOT_FOUND)
