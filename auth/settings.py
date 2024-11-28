@@ -159,7 +159,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 LOGIN_URL = '/api/login/'  # Set this to your login view path
 VIDEO_API_KEY="CYvSGJehJ56Bx0E7o3X8l98fF6oWNwSpb1zcPyNxrysjCpCM6QVwlAePmzZt"
-API_KEY_MODELSLAB = "CYvSGJehJ56Bx0E7o3X8l98fF6oWNwSpb1zcPyNxrysjCpCM6QVwlAePmzZt"  # Replace with your actual API key
+API_KEY_MODELSLAB = "pJqFjy2RIzOsjdgUjysQrSN3Yvq0U8SP0iRpVUAm2vSOyBMFUHy8aF2zLAI3"  # Replace with your actual API key
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MEDIA_URL = '/media/'

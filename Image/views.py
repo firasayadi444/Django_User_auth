@@ -25,7 +25,6 @@ from .serializers import GeneratedImageSerializer
 
 # Your Hugging Face API URL and token
 # API_URL = "https://modelslab.com/api/v6/realtime/text2img"
-API_TOKEN = "vu4r8nvWORAVv0agrJKGF0PqRLlGSK6TUtVTwHiV0OespOzZYoF4GqVD7EVl"
 # URL of the image generation API
 API_URL = "https://modelslab.com/api/v6/realtime/text2img"
 # Maximum number of retries and delay time in seconds
@@ -35,7 +34,7 @@ DELAY_SECONDS = 30
 
 def call_hugging_face_api(prompt, width, height):
     payload = json.dumps({
-        "key": API_TOKEN,
+        "key": settings.API_KEY_MODELSLAB,
         "prompt": prompt,
         "negative_prompt": "bad quality",
         "width": width,
