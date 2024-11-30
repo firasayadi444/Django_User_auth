@@ -6,39 +6,62 @@ from .models import User
 from rest_framework import status
 import jwt, datetime
 
+# class RegisterView(APIView):
+#     def post(self, request):
+#         serializer = UserSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         serializer.save()
+#         return Response(serializer.data)
 class RegisterView(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)  # Ensure 201 is returned
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
     def post(self, request):
-        email = request.data['email']
-        password = request.data['password']
+        # Extract email and password from the request data
+        email = request.data.get('email')
+        password = request.data.get('password')
 
+        # Check if email and password are provided
+        if not email or not password:
+            return Response(
+                {'detail': 'Email and password are required.'},
+                status=400  # Bad Request if email or password is missing
+            )
+
+        # Find the user by email
         user = User.objects.filter(email=email).first()
 
         if user is None:
             raise AuthenticationFailed('User not found!')
 
+        # Check if the password is correct
         if not user.check_password(password):
             raise AuthenticationFailed('Incorrect password!')
 
+        # Create the JWT payload
         payload = {
             'id': user.id,
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=60),
-            'iat': datetime.datetime.utcnow()
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=60),  # Expiration time
+            'iat': datetime.datetime.utcnow()  # Issued at time
         }
 
+        # Encode the token using the secret key
         token = jwt.encode(payload, 'secret', algorithm='HS256')
 
-        response = Response()
+        # Create a response with JWT in the cookie and in the response body
+        response = Response(
+            {'jwt': token},
+            status=200  # OK status code for successful login
+        )
+
+        # Set the JWT token in an HTTP-only cookie for security
         response.set_cookie(key='jwt', value=token, httponly=True)
-        response.data = {
-            'jwt': token
-        }
+
         return response
 
 class UserView(APIView):
