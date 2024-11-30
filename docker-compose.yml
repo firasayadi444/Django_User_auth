@@ -24,6 +24,7 @@ services:
 
   web:
     build: .
+    image: wajdi.bejaouui/django-app:latest  # Replace with your Docker Hub username
     container_name: django_app
     command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
     volumes:
