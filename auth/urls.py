@@ -24,5 +24,6 @@ urlpatterns = [
     path('api/images/', include('Image.urls')),
     path('api/videos/', include('video.urls')),
     path('api/editimages/', include('editimage.urls')),
+    path('api/mlpredict/', include('mlpredict.urls')),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

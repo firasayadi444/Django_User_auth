@@ -1,24 +1,23 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
+""""""
+import logging
 from selenium.webdriver.chrome.options import Options
 
-# Set up Chrome options for headless mode
-chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
+logging.basicConfig(level=logging.INFO)
 
-# Initialize WebDriver
-service = Service('/usr/bin/chromedriver')  # Path to ChromeDriver
-driver = webdriver.Chrome(service=service, options=chrome_options)
+options = Options()
+options.add_argument("--headless")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
 
-# Test: Open PixGen and check title
 try:
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     driver.get("http://localhost:4200")
-    assert "PixGen" in driver.title
-    print("Test Passed: PixGen is accessible.")
+    logging.info("Navigated to http://localhost:4200")
+
+    assert "PixGen" in driver.title, "Page title does not match expected value."
+    logging.info("Test Passed: PixGen is accessible.")
 except Exception as e:
-    print(f"Test Failed: {e}")
+    logging.error(f"Test Failed: {e}")
 finally:
     driver.quit()
+

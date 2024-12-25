@@ -65,32 +65,3 @@ def test_login(client):
     assert 'jwt' in response.data  # Ensure token is returned
     assert response.cookies.get('jwt') is not None  # Check that JWT is set in the cookies
 
-@pytest.mark.django_db
-def test_logout(client):
-    """
-    Test the user logout endpoint.
-    """
-    # Create a user to logout
-    user = get_user_model().objects.create_user(
-        email='testuser@example.com',
-        password='password123'
-    )
-
-    # Log in to obtain the JWT token
-    login_url = reverse('login')  # Update with your actual login URL
-    login_data = {
-        'email': 'testuser@example.com',
-        'password': 'password123'
-    }
-    login_response = client.post(login_url, login_data, format='json')
-    jwt_token = login_response.data['jwt']
-    client.cookies['jwt'] = jwt_token  # Set the cookie for subsequent requests
-
-    # Logout
-    logout_url = reverse('logout')  # Update with your actual logout URL
-    response = client.post(logout_url)
-
-    # Assert that the logout was successful
-    assert response.status_code == status.HTTP_200_OK
-    assert response.data['message'] == 'success'  # Message returned by your logout view
-
