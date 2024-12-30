@@ -103,14 +103,11 @@ WSGI_APPLICATION = 'auth.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'auth',  # Your database name
-        'USER': 'root',  # Your MySQL username
-        'PASSWORD': '',  # Your MySQL password
-        # 'HOST': '127.0.0.1',  # Or the IP address of your MySQL server
-        'HOST': 'mysql_db',  # Or the IP address of your MySQL server
-        # the MySQL host should point to the container name, not 127.0.0.1. Since you're using Docker Compose,
-        #   you should set the HOST to the service name defined in the docker-compose.yml file (mysql_db in this case).
-        'PORT': '3306',  # The default MySQL port
+        'NAME': os.getenv('MYSQL_DATABASE'),
+        'USER': os.getenv('MYSQL_USER'),
+        'PASSWORD': os.getenv('MYSQL_PASSWORD'),
+        'HOST': os.getenv('DATABASE_HOST', 'db'),
+        'PORT': os.getenv('DATABASE_PORT', 3306),
     }
 }
 
